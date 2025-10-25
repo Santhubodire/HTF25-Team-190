@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Voice Assistant</title>
+  <style>
+    body{font-family: Arial, sans-serif;padding:10px;}
+    #transcript{border:1px solid #ddd;padding:12px;height:80px;overflow:auto;}
+    button{padding:8px 12px;margin:6px;}
+    #status {font-size:0.9em;color:#666;}
+  </style>
+</head>
+<body>
+  <h3>Voice Code Assistant (Python)</h3>
+  <div id="transcript">Click Start and speak Python editing commands (e.g. "create a for loop from zero to four").</div>
+  <div id="status">Status: idle</div>
+  <div>
+    <button id="start">Start</button>
+    <button id="stop">Stop</button>
+  </div>
+  <script>
+    const vscode = acquireVsCodeApi();
+    const transcriptEl = document.getElementById('transcript');
+    const statusEl = document.getElementById('status');
+    let recognition;
+    function setup() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        transcriptEl.textContent = 'Speech Recognition not supported in this environment.';
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+
+      recognition.onstart = () => { statusEl.textContent = 'Status: listening...'; };
+      recognition.onend = () => { statusEl.textContent = 'Status: idle'; };
+      recognition.onresult = (event) => {
+        let interim = '';
+        let final = '';
+        for (let i=0;i<event.results.length;i++){
+          if (event.results[i].isFinal) final += event.results[i][0].transcript;
+          else interim += event.results[i][0].transcript;
+        }
+        transcriptEl.textContent = final + interim;
+        if (final.trim()) {
+          // send final transcript to extension
+          vscode.postMessage({ type: 'interpret', text: final.trim() });
+        }
+      };
+      recognition.onerror = (e) => {
+        console.error(e);
+        statusEl.textContent = 'Status: error - ' + (e.error || 'unknown');
+      };
+    }
+
+    document.getElementById('start').addEventListener('click', () => {
+      if (!recognition) setup();
+      try { recognition.start(); } catch (e) { console.warn(e); }
+    });
+    document.getElementById('stop').addEventListener('click', () => {
+      if (recognition) recognition.stop();
+    });
+  </script>
+</body>
+</html>
